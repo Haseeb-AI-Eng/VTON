@@ -1,6 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import requests
+from fastapi.responses import JSONResponse
+from starlette.requests import Request
+import httpx
 import os
 import asyncio
 import base64
@@ -49,10 +51,14 @@ async def health_check():
     }
 
 
-@app.options("/api/generate-tryon")
-async def preflight_generate_tryon():
-    """Handle CORS preflight requests"""
-    return {"status": "ok"}
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global error: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "detail": str(exc)},
+    )
+
 
 # 🔥 IMAGE PREPROCESSING FOR BETTER GARMENT DETECTION
 def enhance_garment_image(image_bytes: bytes) -> bytes:
@@ -178,8 +184,9 @@ async def generate_tryon(
             logger.info(f"Payload: {payload}")
             
             try:
-                response = requests.post(API_URL, json=payload, headers=headers, timeout=30)
-            except requests.exceptions.RequestException as req_error:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(API_URL, json=payload, headers=headers)
+            except httpx.RequestError as req_error:
                 logger.error(f"❌ Request failed: {str(req_error)}")
                 return {"error": "Failed to connect to fashn.ai API", "details": str(req_error)}
             
@@ -199,18 +206,19 @@ async def generate_tryon(
             logger.info(f"⏳ Generation started with ID: {prediction_id}")
             logger.info(f"Status URL: {status_url}")
 
-            for attempt in range(25):  # Increased attempts slightly
-                await asyncio.sleep(8 if attempt < 6 else 12)  # Better timing
-                
-                try:
-                    status_res = requests.get(status_url, headers=headers, timeout=30)
-                    status_data = status_res.json()
-                except requests.exceptions.RequestException as req_error:
-                    logger.error(f"❌ Status check failed: {str(req_error)}")
-                    continue
-                
-                status = status_data.get("status")
-                logger.info(f"Attempt {attempt+1}/25: Status = {status}")
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                for attempt in range(25):  # Increased attempts slightly
+                    await asyncio.sleep(8 if attempt < 6 else 12)  # Better timing
+                    
+                    try:
+                        status_res = await client.get(status_url, headers=headers)
+                        status_data = status_res.json()
+                    except httpx.RequestError as req_error:
+                        logger.error(f"❌ Status check failed: {str(req_error)}")
+                        continue
+                    
+                    status = status_data.get("status")
+                    logger.info(f"Attempt {attempt+1}/25: Status = {status}")
 
                 if status == "completed":
                     output = status_data.get("output", [])
