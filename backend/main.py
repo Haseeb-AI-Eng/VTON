@@ -35,9 +35,9 @@ app.add_middleware(
 VTON_API_KEY = os.getenv("VTON_API_KEY")
 API_URL = "https://api.fashn.ai/v1/run"
 
+
 # 🔒 HARD LOCK (prevents duplicate API calls to manage rate limits)
 lock = Lock()
-
 
 @app.get("/api/health")
 async def health_check():
