@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL ||
+  'https://8000-ia5q4354dcksbxzcdl97w-7332bf72.us2.manus.computer';
+
 const carouselItemsData = [
   { name: "Laaleh Item 1", imgUrl: "https://laaleh.com/wp-content/uploads/2026/03/DSC00413-copy-630x776.jpg" },
   { name: "Laaleh Item 2", imgUrl: "https://laaleh.com/wp-content/uploads/2026/03/DSC00354-copy-630x776.jpg" },
@@ -132,7 +135,7 @@ function App() {
 
     try {
       const response = await axios.post(
-        'https://8000-ia5q4354dcksbxzcdl97w-7332bf72.us2.manus.computer/api/generate-tryon',
+        `${BACKEND_BASE_URL}/api/generate-tryon`,
         formData
       );
 
